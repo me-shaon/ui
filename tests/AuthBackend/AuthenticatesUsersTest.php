@@ -6,6 +6,7 @@ use Illuminate\Foundation\Auth\AuthenticatesUsers;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Pipeline;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Illuminate\Validation\ValidationException;
 use Orchestra\Testbench\Factories\UserFactory;
@@ -91,6 +92,30 @@ class AuthenticatesUsersTest extends TestCase
         $this->assertSame([
             'email' => [
                 'These credentials do not match our records.',
+            ],
+        ], $response->exception->errors());
+    }
+
+    /** @test */
+    public function it_checks_if_password_length_is_too_long()
+    {
+        $user = UserFactory::new()->create();
+
+        $request = Request::create('/login', 'POST', [
+            'email' => $user->email,
+            'password' => Str::repeat('a', 73),
+        ], [], [], [
+           'HTTP_ACCEPT' => 'application/json',
+       ]);
+
+        $response = $this->handleRequestUsing($request, function ($request) {
+            return $this->login($request);
+        })->assertUnprocessable();
+
+        $this->assertInstanceOf(ValidationException::class, $response->exception);
+        $this->assertSame([
+            'password' => [
+                'The password must not be greater than 72 characters.',
             ],
         ], $response->exception->errors());
     }
